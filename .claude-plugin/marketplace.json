@@ -1,0 +1,21 @@
+{
+  "name": "esos-generic-plugin-constitution",
+  "owner": {
+    "name": "ESOS Constitution Administrator",
+    "email": "wispelberg@gmail.com"
+  },
+  "metadata": {
+    "description": "Single-plugin marketplace that ships the foundational, domain-agnostic ESOS Generic Plugin Constitution. Wraps the repository so it can be installed via `/plugin marketplace add` + `/plugin install`.",
+    "version": "3.1.0"
+  },
+  "plugins": [
+    {
+      "name": "esos-generic-plugin-constitution",
+      "source": "./",
+      "description": "Foundational ESOS constitution as a Claude Code plugin. Provides the five specialist subagents (analyst, security, compliance, coding, testing), three common skills, five per-role review skills, and the create/validate workflow skills.",
+      "version": "3.1.0",
+      "category": "constitution",
+      "tags": ["esos", "constitution", "governance", "foundational"]
+    }
+  ]
+}

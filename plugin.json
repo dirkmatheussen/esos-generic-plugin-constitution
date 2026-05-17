@@ -1,0 +1,110 @@
+{
+  "spec_version": "1.0",
+  "name": "esos-generic-plugin-constitution",
+  "display_name": "ESOS Generic Plugin Constitution",
+  "version": "3.1.0",
+  "description": "Foundational, domain-agnostic ESOS constitution packaged as a Claude Code plugin source. Provides the five specialist subagents (analyst, security, compliance, coding, testing), the common review discipline as composable skills, and the create/validate workflow skills. Every derived domain plugin is structurally identical and fully self-contained.",
+  "type": "constitution-base",
+  "inherits_from": null,
+  "kind": "foundational",
+  "license": "see LICENSE in repository root",
+  "homepage": "https://github.com/wispelberg/esos",
+  "maintainers": [
+    {
+      "name": "ESOS Constitution Administrator",
+      "email": "wispelberg@gmail.com"
+    }
+  ],
+  "ratified": "2026-05-17",
+  "last_amended": "2026-05-17",
+  "constitution": {
+    "version": "3.1.0",
+    "root": "constitution.md",
+    "rulesets_dir": "rulesets",
+    "domain_dir": "domain",
+    "shared_dir": "shared",
+    "validation_prompt": "VALIDATION.md",
+    "derivation_prompt": "PROMPT.md",
+    "manual": "MANUAL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "provides": {
+    "agents": [
+      { "name": "esos-analyst",     "path": "agents/esos-analyst.md",     "specialist_class": "BUSINESS_REQUIREMENTS_VERIFICATION" },
+      { "name": "esos-security",    "path": "agents/esos-security.md",    "specialist_class": "SECURITY_REQUIREMENTS_VERIFICATION" },
+      { "name": "esos-compliance",  "path": "agents/esos-compliance.md",  "specialist_class": "COMPLIANCE_REQUIREMENTS_VERIFICATION" },
+      { "name": "esos-coding",      "path": "agents/esos-coding.md",      "specialist_class": "IMPLEMENTATION_ARTIFACT_GENERATION" },
+      { "name": "esos-testing",     "path": "agents/esos-testing.md",     "specialist_class": "TEST_ARTIFACT_GENERATION" }
+    ],
+    "skills": {
+      "common": [
+        { "name": "esos-finding-emission",    "path": "skills/esos-finding-emission/SKILL.md" },
+        { "name": "esos-ruleset-resolution",  "path": "skills/esos-ruleset-resolution/SKILL.md" },
+        { "name": "esos-severity-tier",       "path": "skills/esos-severity-tier/SKILL.md" }
+      ],
+      "review": [
+        { "name": "esos-analyst-review",      "path": "skills/esos-analyst-review/SKILL.md",    "role": "analyst" },
+        { "name": "esos-security-review",     "path": "skills/esos-security-review/SKILL.md",   "role": "security" },
+        { "name": "esos-compliance-review",   "path": "skills/esos-compliance-review/SKILL.md", "role": "compliance" },
+        { "name": "esos-coding-review",       "path": "skills/esos-coding-review/SKILL.md",     "role": "coding" },
+        { "name": "esos-testing-review",      "path": "skills/esos-testing-review/SKILL.md",    "role": "testing" }
+      ],
+      "workflow": [
+        { "name": "esos-create-constitution",   "path": "skills/esos-create-constitution/SKILL.md",   "base_only": true },
+        { "name": "esos-validate-constitution", "path": "skills/esos-validate-constitution/SKILL.md", "base_only": false }
+      ]
+    },
+    "commands": [],
+    "hooks": [],
+    "mcp_servers": []
+  },
+  "self_containment": {
+    "policy": "strict",
+    "external_references_allowed": false,
+    "notes": "Every derived plugin MUST contain its own copy of the rulesets, common skills, review skills, subagent shells, domain docs, shared docs, and the validate workflow skill. No depends_on between ESOS plugins."
+  },
+  "derivation": {
+    "produces": "domain-specific plugin",
+    "derived_plugin_name_pattern": "esos-{{ DOMAIN_SLUG }}",
+    "derived_plugin_inherits_from": "esos-generic-plugin-constitution@3.1.0",
+    "derived_plugin_omits": [
+      "skills/esos-create-constitution"
+    ],
+    "derived_plugin_required": [
+      "plugin.json",
+      ".claude-plugin/marketplace.json",
+      "constitution.md",
+      "README.md",
+      "CLAUDE.md",
+      "rulesets/analyst.md",
+      "rulesets/security.md",
+      "rulesets/compliance.md",
+      "rulesets/coding.md",
+      "rulesets/testing.md",
+      "domain/glossary.md",
+      "domain/governance-policies.md",
+      "domain/tech-stack.md",
+      "shared/normative-language.md",
+      "shared/security-baseline.md",
+      "shared/acceptance-criteria-format.md",
+      "agents/esos-analyst.md",
+      "agents/esos-security.md",
+      "agents/esos-compliance.md",
+      "agents/esos-coding.md",
+      "agents/esos-testing.md",
+      "skills/esos-finding-emission/SKILL.md",
+      "skills/esos-ruleset-resolution/SKILL.md",
+      "skills/esos-severity-tier/SKILL.md",
+      "skills/esos-analyst-review/SKILL.md",
+      "skills/esos-security-review/SKILL.md",
+      "skills/esos-compliance-review/SKILL.md",
+      "skills/esos-coding-review/SKILL.md",
+      "skills/esos-testing-review/SKILL.md",
+      "skills/esos-validate-constitution/SKILL.md"
+    ]
+  },
+  "forward_compatibility": {
+    "manifest_evolution_policy": "Additive keys MAY appear in higher spec_versions; consumers MUST ignore unknown keys. Removing a documented key requires a MAJOR spec_version bump.",
+    "unknown_fields": "ignore"
+  }
+}
