@@ -25,6 +25,58 @@ It serves three purposes:
 
 ---
 
+## What is ESOS?
+
+**ESOS** — **Enterprise Specification Orchestration System** — is an
+AI-assisted pipeline that turns governance into code and applies it before
+software gets built. Five specialist agents (analyst, security, compliance,
+coding, testing) read each specification, check it against a written
+constitution, and emit structured findings. Findings are addressed by editing
+the specification and re-running validation — not by overriding agents.
+
+The premise is straightforward:
+
+- **Specifications come before implementation.** A spec describes the user
+  scenarios, requirements, success criteria, security and compliance posture,
+  and key entities of a change. ESOS validates that spec against the
+  organization's rules before any downstream artefact (design doc, code,
+  tests) is generated.
+- **The rules live in a constitution.** A constitution is a small repository
+  of Markdown files (this repo is one) that declares which sections a spec
+  MUST contain, what regulations apply, what data sensitivities are in scope,
+  what tech stack is sanctioned, and what the per-domain risks are. It is
+  governance-as-code: versioned, auditable, attached to workspaces explicitly.
+- **Specialist agents enforce the constitution.** Each of the five
+  specialists reads only its slice of the spec, runs against a role-specific
+  ruleset, and produces BLOCKING or ADVISORY findings. The pipeline order —
+  `ANALYST → SECURITY → COMPLIANCE → CODING → TESTING → VALIDATION` — means
+  analysis precedes implementation review, every time.
+- **Every check leaves a trace.** Trace events (`LOW_CONFIDENCE`,
+  `CONSTITUTION_WAIVER`, finding emission) are immutable. The audit trail is
+  the contract between the AI-assisted pipeline and the humans who sign off.
+
+ESOS lets a team operate at AI speed without giving up the review discipline
+that regulated, safety-critical, or high-blast-radius domains require — and
+without re-litigating the same governance debates on every change.
+
+### Where this plugin fits
+
+ESOS organizes everything around two artefacts:
+
+- **The pipeline** — the runtime that orchestrates the specialists, evaluates
+  findings, and records trace events.
+- **The constitutions** — domain-specific governance documents that the
+  pipeline enforces. One per domain (automotive, healthcare, fintech, …);
+  each derives from a single foundational base.
+
+This repository is **that foundational base** — packaged as a Claude Code
+plugin so any team can install the specialists and the create/validate
+workflows in one command (see [Install](#install) below). The base itself
+isn't attached to a workspace; it's the floor every domain constitution
+starts from. The rest of this README describes how to use it.
+
+---
+
 ## Why a generic plugin base
 
 This constitution is **foundational** — it is the floor. It defines the ground
@@ -201,7 +253,7 @@ installable in Claude Code via the standard `/plugin` flow. Pick one:
 
 ```text
 # From GitHub (recommended; pin to @<tag> or @<sha> for production):
-/plugin marketplace add wispelberg/esos
+/plugin marketplace add dirkmatheussen/esos-generic-plugin-constitution
 /plugin install esos-generic-plugin-constitution@esos-generic-plugin-constitution
 
 # From a local clone:

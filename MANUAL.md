@@ -120,7 +120,7 @@ Pick one of three install paths:
 #### Option A — install from a Git URL (recommended for teams)
 
 ```text
-/plugin marketplace add wispelberg/esos
+/plugin marketplace add dirkmatheussen/esos-generic-plugin-constitution
 /plugin install esos-generic-plugin-constitution@esos-generic-plugin-constitution
 ```
 
@@ -130,7 +130,7 @@ installs the plugin from that marketplace. Pin to a tag or commit for
 production use:
 
 ```text
-/plugin marketplace add wispelberg/esos@v3.1.0
+/plugin marketplace add dirkmatheussen/esos-generic-plugin-constitution@v3.1.0
 ```
 
 For non-GitHub Git hosts, supply the full HTTPS URL (note the `.git` suffix —
@@ -169,7 +169,7 @@ inherits the same plugin set):
     "esos-generic-plugin-constitution": {
       "source": {
         "source": "github",
-        "repo": "wispelberg/esos"
+        "repo": "dirkmatheussen/esos-generic-plugin-constitution"
       }
     }
   },
