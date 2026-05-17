@@ -1,13 +1,13 @@
 ---
 name: esos-validate-constitution
-description: Use when the user wants to validate, audit, review, or check a candidate domain ESOS plugin for conformance to the Generic Plugin Constitution (v3.0.0). Triggers on phrases like "validate this plugin", "audit the healthcare constitution", "check if this domain plugin is publishable", "review my fintech plugin". Produces a structured findings report with BLOCKING / ADVISORY items per the numbered checks in VALIDATION.md - including v3.0.0's new checks for plugin.json well-formedness, self-containment, CHANGELOG presence, and the rulesets/ + agents/ + skills/ layout.
+description: Use when the user wants to validate, audit, review, or check a candidate domain ESOS plugin for conformance to the Generic Plugin Constitution (v3.2.0). Triggers on phrases like "validate this plugin", "audit the healthcare constitution", "check if this domain plugin is publishable", "review my fintech plugin". Produces a structured findings report with BLOCKING / ADVISORY items per the numbered checks in VALIDATION.md - including v3.2.0's companion-document checks (GEN-022, GEN-023, GEN-122, GEN-123, GEN-124), v3.1.0's marketplace.json check, and v3.0.0's plugin.json / self-containment / CHANGELOG checks.
 ---
 
 # Skill: Validate a domain ESOS plugin
 
 You audit a candidate domain plugin against:
 
-1. The **Generic Plugin Constitution v3.0.0** (this base, the foundational
+1. The **Generic Plugin Constitution v3.2.0** (this base, the foundational
    document) — `constitution.md`, `rulesets/`, `domain/`, `shared/`.
 2. The **numbered checks** in `VALIDATION.md` (Sections A → D).
 3. The **plugin manifest contract** in `plugin.json`.
@@ -78,6 +78,11 @@ Read these files before walking checks:
   `esos-create-constitution` is **absent**.
 - `rulesets/<role>.md` from the generic base for each specialist (for
   severity-floor comparison in GEN-101).
+- The candidate's `templates/` directory if present (for GEN-023).
+- Any candidate specification(s) supplied alongside, including their
+  `companion_documents:` blocks (for GEN-122 / GEN-123). Skip silently if
+  no specification is supplied — `GEN-122` and `GEN-123` only fire
+  against a spec.
 
 ---
 
@@ -94,16 +99,19 @@ Section D. For each check:
 
 **Section coverage**:
 
-- **Section A (GEN-001 to GEN-020)** — Foundational conformance.
+- **Section A (GEN-001 to GEN-023)** — Foundational conformance.
   **BLOCKING at every tier — never relaxed.** Includes the v3.0.0
   additions: GEN-017 (`plugin.json` well-formed), GEN-018
   (self-containment), GEN-019 (`esos-create-constitution` absent),
-  GEN-020 (`CHANGELOG.md` populated).
-- **Section B (GEN-101 to GEN-121)** — Generic baseline. Severities as
+  GEN-020 (`CHANGELOG.md` populated). Adds in v3.2.0: GEN-022
+  (companion-document kind declarations complete), GEN-023
+  (companion-document templates resolve).
+- **Section B (GEN-101 to GEN-124)** — Generic baseline. Severities as
   listed; several entries are **tier-aware** and resolve via the
   matrix in `VALIDATION.md`. Section B includes GEN-103a (CODING role
   preserved) and GEN-103b (TESTING role preserved), which are BLOCKING
-  at every tier.
+  at every tier. Adds in v3.2.0: GEN-122 (companion-document presence),
+  GEN-123 (recognition signature), GEN-124 (extractor coverage).
 - **Section C (GEN-201 to GEN-206)** — Cross-file consistency. Mostly
   BLOCKING; GEN-205 is tier-aware.
 - **Section D (GEN-301 to GEN-306)** — Heuristic quality. ADVISORY at
@@ -199,6 +207,13 @@ BLOCKING findings.
 - [ ] The plugin manifest checks (GEN-017), self-containment
       (GEN-018), no-create-skill (GEN-019), and CHANGELOG presence
       (GEN-020) were all walked.
+- [ ] GEN-022 / GEN-023 (companion-document declarations and template
+      refs) were walked even if no candidate spec is in scope.
+- [ ] GEN-122 / GEN-123 were skipped silently when no candidate spec
+      was supplied (they cannot fire against a constitution-only
+      audit).
+- [ ] GEN-124 (extractor coverage) was evaluated for every
+      `allowed_formats` extension declared in §2.2.4.
 
 If any of the above fails, redo the audit — don't deliver a partial
 report.

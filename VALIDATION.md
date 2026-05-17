@@ -65,11 +65,14 @@ matrix has its severity as declared in the check body.
 | GEN-117   | Subagent description domain mention                      | BLOCKING | BLOCKING  | ADVISORY (file presence remains BLOCKING) |
 | GEN-118   | Validate skill description tuned                         | BLOCKING | BLOCKING  | ADVISORY (file presence remains BLOCKING) |
 | GEN-205   | Tech-stack alignment across agents                       | BLOCKING | BLOCKING  | ADVISORY               |
+| GEN-122   | Companion document missing/unreachable                   | BLOCKING | BLOCKING  | ADVISORY               |
+| GEN-123   | Companion document fails recognition signature           | BLOCKING | BLOCKING  | ADVISORY               |
+| GEN-124   | Companion document has no available extractor           | BLOCKING | ADVISORY  | ADVISORY               |
 | GEN-301..306 | Section D heuristics                                  | ADVISORY | ADVISORY  | informational (not counted in BLOCKING/ADVISORY totals) |
 
-**Never tier-aware (BLOCKING at every tier):** all of Section A (GEN-001..020 —
-including the new `plugin.json`, self-containment, no-create-skill, and
-CHANGELOG checks introduced in v3.0.0), GEN-101 (severity floor), GEN-102
+**Never tier-aware (BLOCKING at every tier):** all of Section A (GEN-001..023 —
+including the `plugin.json`, self-containment, no-create-skill, CHANGELOG, and
+companion-document-declaration checks), GEN-101 (severity floor), GEN-102
 (RFC 2119), GEN-103a (CODING role), GEN-103b (TESTING role), GEN-110, GEN-111,
 GEN-201, GEN-206.
 
@@ -227,6 +230,11 @@ file = BLOCKING. A candidate that still declares `inherits_from` =
 the v3.0.0 contract), but the validator emits an ADVISORY suggesting an
 upgrade to 3.1.0 + add the wrapper for installability.
 
+For `templates/` specifically: the directory is **conditionally required**.
+If any §2.2.4 kind declares a `template_ref`, the directory MUST exist and
+each `template_ref` value MUST resolve to a file inside it (GEN-023). If no
+kind declares `template_ref`, the directory MAY be absent.
+
 ### GEN-015 — All `@esos-include` paths resolve
 
 Every `@esos-include path/to/file.md` and `<!-- esos-include: ... -->` directive across
@@ -287,6 +295,32 @@ The candidate's `CHANGELOG.md` MUST contain at least one version entry. The
 oldest entry MUST name: the derivation date, the base version inherited from
 (`Generic Plugin Constitution v3.0.0` or later), and the severity tier.
 Missing or empty CHANGELOG = BLOCKING. Stub or placeholder content = BLOCKING.
+
+### GEN-022 — Companion document kind declarations are complete
+
+If the candidate's `constitution.md` §2.2.4 contains any
+`mandatory_document_kinds:` entries, every entry MUST have `kind`, `label`,
+`applies_when`, `allowed_formats`, `recognition`, `severity_on_missing`, and
+`severity_on_mismatch` populated with non-placeholder values. Every
+`recognition` block MUST contain at least one rule. The set of `kind` values
+in §2.2.4 MUST exactly equal the set of keys listed under §8
+`mandatory_document_kinds:`. Missing field, unreplaced `{{ ... }}` token, or
+key-set mismatch = BLOCKING.
+
+BLOCKING at every tier — these declarations gate every downstream document
+check.
+
+### GEN-023 — Companion document templates resolve
+
+For every kind in §2.2.4 that declares a `template_ref`, the referenced path
+MUST resolve to an existing file inside the plugin tree (typically under
+`templates/`). The auditor does not open the template or inspect its
+contents — presence-only. Missing file = BLOCKING.
+
+If any kind declares `template_ref`, the plugin MUST contain a `templates/`
+directory. If no kind declares `template_ref`, the directory MAY be omitted.
+
+BLOCKING at every tier.
 
 ---
 
@@ -520,6 +554,55 @@ silently weakened or strengthened the tier the brief committed to). The audit us
 candidate's declared value for the rest of the run.
 
 Skip this check if no brief is supplied to the validator.
+
+### GEN-122 — Companion document instance present when applicable
+
+Given a candidate specification under audit (or all specs in a candidate
+workspace): for every kind in `constitution.md` §2.2.4 whose `applies_when`
+evaluates true against the spec, AND for every entry the spec lists in its
+own `companion_documents:` block, the entry MUST point to a resolvable
+target —
+
+- For `path`: the file exists relative to the workspace.
+- For `url`: the URL is on the §5 External Link allowlist (no fetch is
+  performed).
+
+| `strict` | `normal` | `relaxed` |
+| -------- | -------- | --------- |
+| BLOCKING | BLOCKING | ADVISORY  |
+
+Skip this check silently if no candidate specification is supplied — it can
+only fire against a spec, not against a constitution-only audit.
+
+### GEN-123 — Companion document instance satisfies recognition signature
+
+For every resolvable target from GEN-122, the COMPLIANCE specialist opens
+the file using the extractor matching its extension (see
+`rulesets/compliance.md` §6 extractor dispatch table) and produces a
+Normalized Document Model (`constitution.md` §2.2.1). Every rule in the
+kind's `recognition` block (§2.2.2) MUST be satisfied. A document that
+yields an empty model (no extractable text) fails this check.
+
+| `strict` | `normal` | `relaxed` |
+| -------- | -------- | --------- |
+| BLOCKING | BLOCKING | ADVISORY  |
+
+Skip this check silently if no candidate specification is supplied.
+
+### GEN-124 — Extractor coverage for declared formats
+
+For every extension listed in any kind's `allowed_formats` (§2.2.4), an
+extractor MUST be available — either via the default dispatch table in
+`rulesets/compliance.md` §7 or via an explicit extension declared by the
+derived plugin. A declared `allowed_format` with no extractor available
+causes recognition to fail without producing a useful model.
+
+| `strict` | `normal` | `relaxed` |
+| -------- | -------- | --------- |
+| BLOCKING | ADVISORY | ADVISORY  |
+
+This check fires against a constitution alone — no specification is
+required.
 
 ---
 

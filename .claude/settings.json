@@ -4,7 +4,10 @@
       "Bash(python3 -m json.tool plugin.json)",
       "Bash(python3 -m json.tool .claude-plugin/marketplace.json)",
       "Bash(git -C /Users/Dirk/Documents/Cursur-Projects/esos status --short generic-plugin-constitution/)",
-      "Bash(git -C /Users/Dirk/Documents/Cursur-Projects/esos status generic-plugin-constitution/)"
+      "Bash(git -C /Users/Dirk/Documents/Cursur-Projects/esos status generic-plugin-constitution/)",
+      "WebSearch",
+      "Bash(grep -n \"^### \\\\`rulesets\\\\|^### \\\\`agents\\\\|^### \\\\`skills\\\\|^### \\\\`domain\\\\|^### \\\\`shared\\\\|^## \" /Users/Dirk/Documents/Cursur-Projects/esos/generic-plugin-constitution/PROMPT.md)",
+      "Bash(python3 -c \"import json; json.load\\(open\\('plugin.json'\\)\\); json.load\\(open\\('.claude-plugin/marketplace.json'\\)\\); print\\('JSON valid'\\)\")"
     ]
   }
 }

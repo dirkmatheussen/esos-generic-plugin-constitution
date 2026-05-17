@@ -117,7 +117,61 @@ currencies, addresses, names, time zones, or units.
 | Silent duplication of a capability owned by a shared component     | ADVISORY |
 | Ambiguous organizational scope                                     | ADVISORY |
 
-### 6. Domain-specific Compliance
+### 6. Mandatory Companion Documents
+
+**Trigger**: The constitution's §2.2.4 declares one or more
+`mandatory_document_kinds`.
+
+You own the companion-document check end-to-end. It is a **presence +
+type-identity** discipline — never a content-quality discipline.
+
+#### 6.1 Procedure
+
+1. Read `constitution.md` §2.2.4 — the kinds in scope.
+2. For each kind, evaluate `applies_when` against the spec body.
+3. Read the spec's `companion_documents:` block. For every applicable kind:
+   - If no entry exists → emit `compliance.companion_doc.missing` (severity
+     per the kind's `severity_on_missing`, tier-aware).
+   - Else resolve the entry (`path` exists, or `url` is on §5 allowlist).
+     Unresolved → emit `compliance.companion_doc.unreachable`.
+4. For each resolved entry, dispatch the right extractor (§6.2), produce a
+   Normalized Document Model (`constitution.md` §2.2.1), and evaluate every
+   rule in the kind's `recognition` block. On any failure → emit
+   `compliance.companion_doc.recognition_failed` (severity per the kind's
+   `severity_on_mismatch`).
+
+Never open document content for quality review — only to extract the model.
+Never emit findings about *what the document says*; only about *whether it
+is recognizably of the declared kind*.
+
+#### 6.2 Extractor Dispatch Table (default)
+
+| Extension       | Extractor (suggested)                                                         |
+| --------------- | ----------------------------------------------------------------------------- |
+| `.docx`         | `claude-api:docx` skill, or `python-docx` via Bash.                            |
+| `.xlsx`         | `claude-api:xlsx` skill, or `openpyxl` via Bash.                               |
+| `.pdf`          | `Read` (native PDF) or `pdftotext`.                                            |
+| `.vsdx`         | `unzip` + XML grep over `visio/pages/*.xml`.                                   |
+| `.pptx`         | `claude-api:pptx` skill, or `python-pptx` via Bash. Slide titles → `headings`; section names → `sections`; body and shape text → `text`; embedded table headers → `tabular_headers`. |
+| `.ppt`          | Legacy binary format. Convert to `.pptx` first (`libreoffice --headless --convert-to pptx`), then use the `.pptx` extractor. If conversion fails, the model is empty and recognition fails. |
+| `.html` `.htm`  | Any HTML parser → headings from `<h1>..<h6>`, tabular headers from `<th>`.     |
+| `.md`           | Markdown headings via `#..######`; `text` = raw file.                          |
+| `.txt`          | `headings` and `tabular_headers` empty; `text` = raw file.                     |
+| other           | Derived plugin extends this table. Missing extractor → `GEN-124`.              |
+
+Derived plugins MAY extend or override this table; they MUST NOT remove an
+extractor that the constitution's `allowed_formats` lists.
+
+#### 6.3 Findings
+
+| Finding                                                              | Severity                                  |
+| -------------------------------------------------------------------- | ----------------------------------------- |
+| Applicable kind has no entry in spec's `companion_documents:`        | Per kind's `severity_on_missing`          |
+| Entry's `path` does not resolve / `url` not on §5 allowlist          | Per kind's `severity_on_missing`          |
+| Entry opens but recognition signature fails                          | Per kind's `severity_on_mismatch`         |
+| Entry's extension has no extractor available                         | Tier-aware (GEN-124)                      |
+
+### 7. Domain-specific Compliance
 
 <!-- esos:domain-customization -->
 
@@ -156,3 +210,7 @@ Emit findings in the standard finding format. Common message keys:
 - `compliance.versioning.breaking_no_migration`
 - `compliance.versioning.api_version_missing`
 - `compliance.scoping.silent_duplication`
+- `compliance.companion_doc.missing`
+- `compliance.companion_doc.unreachable`
+- `compliance.companion_doc.recognition_failed`
+- `compliance.companion_doc.extractor_missing`

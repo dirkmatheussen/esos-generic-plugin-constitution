@@ -155,7 +155,130 @@ Examples (delete the table above and use entries appropriate to the domain):
 
 <!-- /esos:domain-customization -->
 
-### 2.2 Section Discipline
+## 2.2 Mandatory Companion Documents
+
+<!-- esos:keep -->
+
+A constitution MAY require certain **companion documents** to accompany a specification
+(e.g. Threat Model, Risk Register, Architecture Diagram, DPIA, Safety Case). Companion
+documents are identified by **kind**, not by filename. They are commonly authored in
+office or web formats — `.docx`, `.xlsx`, `.pptx` (and legacy `.ppt`), `.vsdx`, `.pdf`,
+`.html`, `.md`, `.txt`, and others a derivation chooses to support — and may contain
+images.
+
+The COMPLIANCE specialist verifies, in this order:
+
+1. **Presence** — a document is declared in the spec's `companion_documents:` manifest
+   and the referenced `path` or `url` resolves (URL must be on the §5 allowlist).
+2. **Type identity** — when opened and extracted into the normalized document model
+   (§2.2.1), the document satisfies the kind's `recognition` block (§2.2.2).
+
+This is **identity**, not **quality**. A signature-passing document with sparse content
+is still recognized as the declared kind; content quality belongs to human review.
+
+The foundational base declares **no required document kinds**. Derived plugins declare
+zero or more kinds in §2.2.4.
+
+### 2.2.1 Normalized Document Model
+
+Every extractor produces:
+
+| Field             | Source examples                                                                |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `text`            | Full extracted plain text from any format.                                     |
+| `headings`        | Word `Heading 1..N` styles; HTML `<h1>..<h6>`; Markdown `#..######`; PDF outline; PowerPoint slide titles. |
+| `sections`        | Excel sheet names; Visio page names; PDF top-level outline entries; PowerPoint section names. |
+| `tabular_headers` | Excel header rows; HTML `<th>` cells; CSV first row; PowerPoint embedded-table header rows. |
+| `metadata.format` | Detected file extension.                                                       |
+
+Unpopulated fields are empty lists. Recognition rules apply to whichever fields the
+extractor filled in.
+
+Recognition is **text-based**. Documents whose text is not machine-extractable (scanned
+PDFs without OCR, image-only Visio, password-protected files) yield an empty model and
+fail recognition. Derived plugins targeting `strict` SHOULD require text-bearing
+surfaces (labelled shapes, captions, OCR'd scans).
+
+### 2.2.2 Recognition Rules
+
+| Rule                       | Operates on        | Meaning                                                       |
+| -------------------------- | ------------------ | ------------------------------------------------------------- |
+| `keywords_min_hits`        | `text`             | At least `count` of `of:` items appear (case-insensitive).    |
+| `regex_any_of`             | `text`             | At least one regex matches.                                   |
+| `text_contains_all_of`     | `text`             | All listed strings appear.                                    |
+| `headings_any_of`          | `headings`         | At least one listed heading appears.                          |
+| `headings_all_of`          | `headings`         | All listed headings appear.                                   |
+| `sections_any_of`          | `sections`         | At least one listed section name appears.                     |
+| `tabular_headers_all_of`   | `tabular_headers`  | All listed column headers appear in some table.               |
+| `any_of: [<rule block>]`   | model              | Multi-format alternative — passes if any inner block passes.  |
+
+Rules inside a single `recognition` block are **AND**-combined; `any_of` introduces OR.
+Matching is case-insensitive unless a rule uses a case-sensitive regex.
+
+### 2.2.3 Per-Kind Schema
+
+| Field                  | Purpose                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| `kind`                 | Machine key, snake_case (e.g. `threat_model`).                                  |
+| `label`                | Human label used in findings.                                                   |
+| `applies_when`         | Predicate COMPLIANCE can evaluate from the spec body.                           |
+| `template_ref`         | Optional. Starting-point template shipped in the plugin's `templates/` dir.     |
+| `allowed_formats`      | List of accepted extensions (e.g. `[docx, pdf, html, md, txt]`).                 |
+| `recognition`          | Rule block — see §2.2.2.                                                        |
+| `severity_on_missing`  | BLOCKING or ADVISORY (subject to §6.1 tier matrix).                             |
+| `severity_on_mismatch` | BLOCKING or ADVISORY (subject to §6.1 tier matrix).                             |
+
+Every instance is referenced from the spec's `companion_documents:` block:
+
+```yaml
+companion_documents:
+  - kind: threat_model
+    path: docs/security/spec-2026-0042-threat-model.docx
+  - kind: risk_register
+    url: "https://tenant.sharepoint.com/.../risks.xlsx"
+```
+
+Each entry MUST provide either `path` (relative to the workspace) or `url` (subject to
+§5 External Link Policy). The auditor verifies presence (`path` resolves, or `url` is on
+the §5 allowlist) and then opens the artefact to evaluate the kind's `recognition` block.
+
+Responsibility for surfacing missing or mismatched companion documents sits with the
+**COMPLIANCE** specialist (§3).
+
+<!-- /esos:keep -->
+
+### 2.2.4 Domain-Specific Companion Document Kinds
+
+<!-- esos:domain-customization -->
+
+```yaml
+mandatory_document_kinds:
+  - kind: {{ KIND_KEY }}
+    label: "{{ KIND_LABEL }}"
+    applies_when: "{{ PREDICATE_OR_DESCRIPTION }}"
+    template_ref: "templates/{{ KIND_KEY }}.docx"     # optional
+    allowed_formats: [docx, pdf]
+    recognition:
+      any_of:
+        - headings_all_of: ["{{ HEADING_A }}", "{{ HEADING_B }}"]
+        - keywords_min_hits:
+            count: 3
+            of: ["{{ KW1 }}", "{{ KW2 }}", "{{ KW3 }}", "{{ KW4 }}"]
+    severity_on_missing: BLOCKING
+    severity_on_mismatch: BLOCKING
+```
+
+Examples by domain:
+
+- `threat_model`, `dpia` — security/privacy-heavy domains
+- `risk_register`, `risk_assessment` — risk-managed domains
+- `architecture_diagram`, `adr` — architecture-change-heavy domains
+- `safety_case` — ISO 26262 / IEC 62304 domains
+- `accessibility_report` — public-sector / WCAG
+
+<!-- /esos:domain-customization -->
+
+### 2.3 Section Discipline
 
 The 8 foundational section **keys** (§2) MUST appear in `mandatory_section_keys` (§8) at
 every severity tier. How strictly *presence and content* are enforced varies by tier:
@@ -371,6 +494,9 @@ looser tiers.
 | Acceptance scenarios not in Given/When/Then form              | BLOCKING  | BLOCKING  | ADVISORY  |
 | Tech-stack mechanisms named in agents inconsistent with `tech-stack.md` | BLOCKING  | BLOCKING  | ADVISORY  |
 | Claude Code subagent or skill file absent                     | BLOCKING  | BLOCKING  | ADVISORY (file presence still BLOCKING under §9) |
+| Mandatory companion document missing or unreachable           | BLOCKING  | BLOCKING  | ADVISORY  |
+| Companion document fails recognition signature                | BLOCKING  | BLOCKING  | ADVISORY  |
+| Companion document has no available extractor                 | BLOCKING  | ADVISORY  | ADVISORY  |
 
 **ADVISORY by default at every tier:**
 
@@ -428,7 +554,7 @@ constitution_catalog_row:
   logical_id: "{{ DOMAIN_LOGICAL_ID_UUID }}"     # stable across versions
   version: {{ VERSION_INTEGER }}                  # increment on every published change
   name: "{{ DOMAIN_NAME }} Constitution"
-  inherits_from: "Generic Plugin Constitution v3.1.0" # this base; required for derivations
+  inherits_from: "Generic Plugin Constitution v3.2.0" # this base; required for derivations
   severity_tier: "{{ SEVERITY_TIER }}"            # strict | normal | relaxed (see §1.4)
   mandatory_section_keys:
     - use_case_traceability
@@ -441,6 +567,9 @@ constitution_catalog_row:
     - internationalization
     # add domain-specific keys from §2.1 below
     # - {{ EXTRA_SECTION_KEY }}
+  mandatory_document_kinds:
+    # Machine-readable mirror of §2.2.4; list the kind keys declared above.
+    # - {{ KIND_KEY }}
   domain_tags:
     - "{{ DOMAIN_TAG_1 }}"
     - "{{ DOMAIN_TAG_2 }}"
@@ -490,6 +619,13 @@ payload. Files marked `required` MUST exist; files marked `optional` MAY be adde
 │   ├── esos-coding.md                         # required
 │   └── esos-testing.md                        # required
 │
+├── templates/                                 # optional — required iff any §2.2.4
+│   │                                            #            kind declares `template_ref`.
+│   │                                            #            Files may be of any format
+│   │                                            #            (.docx, .xlsx, .vsdx, .pdf,
+│   │                                            #            .html, .md, .txt, …).
+│   └── <kind>.<ext>                           # one per kind that declares template_ref
+│
 └── skills/                                    # required — Claude Code skills
     ├── esos-finding-emission/                 # required — common
     │   └── SKILL.md                           # required
@@ -513,6 +649,10 @@ payload. Files marked `required` MUST exist; files marked `optional` MAY be adde
 
 Adding files (e.g. `rulesets/safety.md`, `domain/regulations.md`, additional skills) is
 permitted; removing required files is not.
+
+The `templates/` directory is **optional** — it MUST exist if and only if any §2.2.4
+kind declares a `template_ref`. Files in `templates/` may be of any format the
+constitution accepts; the auditor only verifies their existence (`GEN-023`).
 
 The `skills/esos-create-constitution/` skill is **intentionally absent** from
 derivations — derived plugins do not derive further plugins. That skill lives only
@@ -573,8 +713,10 @@ recording the contract delta for every published version.
 | Governance policies          | Cross-domain principles               | Concrete policies, regulations, audit regimes     |
 | Severity overrides           | Defaults from §6.1                    | May tighten; never loosen foundational-floor items |
 | Severity tier (§1.4)         | Defines three tiers; no tier of its own | Declares one of `strict` / `normal` / `relaxed` in §8 |
+| Companion document kinds (§2.2) | None declared                            | May declare any number; each kind has a recognition signature |
+| Companion document templates | None                                        | `templates/<kind>.<ext>` shipped when a kind declares `template_ref` |
 
 ---
 
-**Version**: 3.1.0 | **Ratified**: 2026-05-17 | **Last Amended**: 2026-05-17
+**Version**: 3.2.0 | **Ratified**: 2026-05-17 | **Last Amended**: 2026-05-17
 **Inherits from**: none (foundational) | **Manifest**: [`plugin.json`](plugin.json) | **Changes**: [`CHANGELOG.md`](CHANGELOG.md)

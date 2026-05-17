@@ -6,7 +6,7 @@ description: Use when the user wants to create, derive, or generate a domain-spe
 # Skill: Create a domain-specific ESOS plugin
 
 You are deriving a new domain plugin from the Generic Plugin Constitution
-(v3.0.0). The Generic Plugin Constitution lives in this repository
+(v3.2.0). The Generic Plugin Constitution lives in this repository
 (`generic-plugin-constitution/`) and is the floor every derivation starts
 from — there is no document above it.
 
@@ -78,6 +78,11 @@ field is missing, stop and ask before continuing.
 - `ARCHITECTURE_STYLE` (monolith, microservices, event-driven, …).
 - `DOMAIN_SPECIFIC_RISKS` (3–7 risks unique to this domain).
 - `EXTRA_MANDATORY_SECTIONS` (e.g. `safety_case`, `clinical_workflow`).
+- `MANDATORY_DOCUMENT_KINDS` — list of companion-document kinds with
+  `applies_when`, `allowed_formats`, and `recognition` rules. See
+  `MANUAL.md` §5.13 for the schema and recognition-rule design tips. If
+  the brief omits this field, the derivation declares no companion
+  documents (`mandatory_document_kinds: []` in §2.2.4).
 - `SPECIALIST_WAIVERS` (rare; usually empty).
 - `EXTERNAL_LINK_ALLOWLIST`.
 - `DOMAIN_TAGS`.
@@ -145,6 +150,8 @@ Mirror the base layout 1:1 (per `constitution.md` §9):
 ├── domain/{glossary,governance-policies,tech-stack}.md
 ├── shared/{normative-language,security-baseline,acceptance-criteria-format}.md
 ├── agents/esos-{analyst,security,compliance,coding,testing}.md
+├── templates/                                # optional — only if any §2.2.4 kind
+│   └── <kind>.<ext>                          #            declares `template_ref`
 └── skills/
     ├── esos-finding-emission/SKILL.md
     ├── esos-ruleset-resolution/SKILL.md
@@ -160,6 +167,27 @@ Mirror the base layout 1:1 (per `constitution.md` §9):
 `skills/esos-create-constitution/` is **intentionally absent** —
 derivations don't derive further.
 
+**Scaffold `templates/` when any kind declares `template_ref`.** For every
+kind in the brief's `MANDATORY_DOCUMENT_KINDS` that declares `template_ref`,
+create a placeholder file at the referenced path inside the derived plugin
+tree (typically `<DOMAIN_SLUG>/templates/<kind>.<ext>`):
+
+- `.md` / `.txt` / `.html` → one-line text file with
+  `# {{ kind label }} template` and a trailing comment "(replace with the
+  heading skeleton the team wants authors to start from)".
+- `.docx` / `.xlsx` / `.vsdx` / `.pdf` → an empty file at the right path.
+  Do NOT attempt to author Office content — the team replaces these stubs
+  with real templates before publishing.
+
+Surface every stubbed template in the derivation summary as a "template to
+fill" task. If `MANDATORY_DOCUMENT_KINDS` is empty or omitted, do NOT
+create `templates/`.
+
+If any kind's `allowed_formats` lists an extension not in the default
+extractor dispatch table (`rulesets/compliance.md` §6.2), emit a warning in
+the summary: "declared format `<ext>` has no extractor — extend the
+dispatch table or audit will fire `GEN-124`."
+
 For each file, apply the per-file production rules in `PROMPT.md`. In
 particular:
 
@@ -173,7 +201,7 @@ particular:
   marked optional trailing sections — never by editing the base
   discipline.
 - **`plugin.json`** in the derived plugin declares
-  `inherits_from: "esos-generic-plugin-constitution@3.0.0"`,
+  `inherits_from: "esos-generic-plugin-constitution@3.2.0"`,
   `kind: "derived"`, `self_containment.policy: "strict"`, and omits
   `esos-create-constitution` from `provides.skills.workflow`.
 - **Cite regulations specifically** — vague "GDPR-compliant" is
@@ -208,7 +236,7 @@ key gates (full list in `PROMPT.md`):
 - [ ] All five specialist classes wired in `esosAgentCatalog` with paths
       pointing to `rulesets/<role>.md`.
 - [ ] `plugin.json` present at the plugin root with
-      `inherits_from: "esos-generic-plugin-constitution@3.0.0"`,
+      `inherits_from: "esos-generic-plugin-constitution@3.2.0"`,
       `kind: "derived"`, `self_containment.policy: "strict"`, no
       `esos-create-constitution` in `provides.skills.workflow`.
 - [ ] `CHANGELOG.md` present with `[1.0.0]` entry.
@@ -229,6 +257,13 @@ key gates (full list in `PROMPT.md`):
 - [ ] `severity_tier` set everywhere it must be set (`constitution.md`
       §8, README, CLAUDE.md). If defaulted, the derivation summary
       records it.
+- [ ] §2.2 / §2.2.1 / §2.2.2 / §2.2.3 of `constitution.md` are verbatim
+      from the base; §2.2.4 is either `mandatory_document_kinds: []` or
+      a fully-populated list from the brief.
+- [ ] Every kind in §2.2.4 has a matching key in §8
+      `mandatory_document_kinds:`.
+- [ ] Every `template_ref` resolves to a stub file under `templates/`;
+      stubs are listed in the summary as "team must fill".
 
 Fix any failures before declaring done. **Do not emit a partial result.**
 

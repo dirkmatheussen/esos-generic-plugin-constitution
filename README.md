@@ -1,6 +1,6 @@
 # ESOS Generic Plugin Constitution (Foundational)
 
-> **Version**: 3.1.0 | **Ratified**: 2026-05-17 | **Last Amended**: 2026-05-17
+> **Version**: 3.2.0 | **Ratified**: 2026-05-17 | **Last Amended**: 2026-05-17
 > **Type**: Foundational, domain-agnostic constitution **packaged as a Claude
 > Code plugin source** — the floor every derivation starts from. It does not
 > inherit from any other document.
@@ -331,7 +331,7 @@ A derived plugin may tighten anything in this base. It may extend with
 additional sections, agents, glossary entries, policies, or stack rules. It
 may **not** weaken any rule this base flags as a `MUST` or `MUST NOT`, and
 its `plugin.json` MUST declare
-`inherits_from: "esos-generic-plugin-constitution@3.1.0"` (or higher).
+`inherits_from: "esos-generic-plugin-constitution@3.2.0"` (or higher).
 
 A derived plugin MUST NOT introduce a runtime dependency on another plugin
 (see `plugin.json` → `self_containment.policy: strict`). If it needs

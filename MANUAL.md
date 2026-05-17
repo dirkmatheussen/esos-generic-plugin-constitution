@@ -130,7 +130,7 @@ installs the plugin from that marketplace. Pin to a tag or commit for
 production use:
 
 ```text
-/plugin marketplace add dirkmatheussen/esos-generic-plugin-constitution@v3.1.0
+/plugin marketplace add dirkmatheussen/esos-generic-plugin-constitution@v3.2.0
 ```
 
 For non-GitHub Git hosts, supply the full HTTPS URL (note the `.git` suffix —
@@ -138,7 +138,7 @@ it tells Claude Code to clone rather than treat the URL as a marketplace
 manifest):
 
 ```text
-/plugin marketplace add https://gitlab.example.com/platform/esos.git#v3.1.0
+/plugin marketplace add https://gitlab.example.com/platform/esos.git#v3.2.0
 ```
 
 #### Option B — install from a local path (recommended while iterating)
@@ -229,7 +229,7 @@ Two layers govern your constitution. The Generic Constitution is **foundational*
 it is the floor; nothing sits above it.
 
 ```
-Generic Plugin Constitution Base v3.1.0     ← the floor: 5 specialist classes, pipeline
+Generic Plugin Constitution Base v3.2.0     ← the floor: 5 specialist classes, pipeline
         │                              ordering, mandatory section minimum, audit
         │                              and traceability rules, severity floor,
         │                              CODING agent as senior dev/architect (14 areas),
@@ -289,6 +289,7 @@ Optional but **strongly recommended**:
 | `EXTERNAL_LINK_ALLOWLIST`  | Allowed schemes/hosts                                                  | `https` only, no host allowlist.                                   |
 | `DOMAIN_TAGS`              | Catalog tags for search                                                | Empty (poor catalog hygiene).                                      |
 | `DOMAIN_LOGICAL_ID_UUID`   | UUID for stable identity across versions                               | Auto-generated.                                                    |
+| `MANDATORY_DOCUMENT_KINDS` | Companion documents required alongside specs (Threat Model, Risk Register, DPIA, …) with `applies_when`, allowed formats, and recognition signatures | Empty — no companion-document checks enforced. See [§5.13](#513-mandatory_document_kinds). |
 
 
 **A worked example brief** (automotive spare parts supply chain):
@@ -380,6 +381,44 @@ EXTRA_MANDATORY_SECTIONS:
 EXTERNAL_LINK_ALLOWLIST:
   schemes: [https]
   hosts: [confluence.example-auto.com, sharepoint.example-tenant.com, supplier-portal.example-tier1.com]
+
+MANDATORY_DOCUMENT_KINDS:
+  - kind: recall_impact_assessment
+    label: "Recall Impact Assessment"
+    applies_when: "spec touches recall_traceability or safety-critical parts"
+    template_ref: "templates/recall-impact-assessment.docx"
+    allowed_formats: [docx, pdf]
+    recognition:
+      any_of:
+        - headings_all_of: ["Affected VIN Population", "Root Cause", "Remediation Plan"]
+        - keywords_min_hits:
+            count: 4
+            of: ["VIN", "campaign", "remediation", "supplier", "field action"]
+    severity_on_missing: BLOCKING
+    severity_on_mismatch: BLOCKING
+
+  - kind: supplier_quality_certificate
+    label: "Supplier Quality Certificate (PPAP / IATF 16949)"
+    applies_when: "supplier_integration in scope"
+    template_ref: "templates/supplier-quality-certificate.pdf"
+    allowed_formats: [pdf, docx]
+    recognition:
+      keywords_min_hits:
+        count: 3
+        of: ["PPAP", "IATF 16949", "Part Submission Warrant", "supplier", "approval"]
+    severity_on_missing: ADVISORY
+    severity_on_mismatch: ADVISORY
+
+  - kind: pricing_change_authorization
+    label: "Pricing Change Authorization"
+    applies_when: "pricing_controls in scope"
+    template_ref: "templates/pricing-change-authorization.xlsx"
+    allowed_formats: [xlsx]
+    recognition:
+      sheet_names_any_of: ["Authorization", "Pricing Change"]
+      tabular_headers_all_of: ["Region", "Effective Date", "Approver"]
+    severity_on_missing: BLOCKING
+    severity_on_mismatch: BLOCKING
 
 DOMAIN_TAGS: [automotive, spare-parts, supply-chain, b2b, oem, aftermarket]
 ```
@@ -789,6 +828,57 @@ If you omit `SEVERITY_TIER` from the brief, the derivation skill defaults to
 `strict` and records the defaulting in the derivation summary. Pick deliberately
 rather than letting the default decide for you.
 
+### 5.13 `MANDATORY_DOCUMENT_KINDS`
+
+Companion documents are deliverables that must exist *alongside* a specification —
+Threat Model, Risk Register, Architecture Diagram, DPIA, Safety Case, etc. They
+typically live in office formats (`.docx`, `.xlsx`, `.pptx`, `.vsdx`, `.pdf`) and
+may contain images. The constitution does not judge their content; it verifies only
+that, for every applicable kind, a document **exists** and is **recognizably of
+that kind**.
+
+You declare zero or more kinds. Each kind has:
+
+
+| Field                  | Purpose                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `kind`                 | snake_case machine key.                                                       |
+| `label`                | Human label used in findings.                                                 |
+| `applies_when`         | Predicate the COMPLIANCE agent evaluates from the spec body.                  |
+| `template_ref`         | Optional. Path to a starting-point template shipped at `templates/<kind>.<ext>`. |
+| `allowed_formats`      | Extensions you accept (`docx`, `pdf`, `xlsx`, `pptx`, `ppt`, `vsdx`, `html`, `md`, `txt`, …).|
+| `recognition`          | Signature block — see `constitution.md` §2.2.2.                               |
+| `severity_on_missing`  | BLOCKING or ADVISORY when no instance exists.                                 |
+| `severity_on_mismatch` | BLOCKING or ADVISORY when instance exists but fails recognition.              |
+
+
+**Writing a good `recognition` block** — aim for these properties:
+
+- **Robust to renames and reorders.** Avoid `headings_all_of` if reviewers commonly
+  reword headings; use `keywords_min_hits` with `count` < length-of-list so partial
+  matches pass.
+- **Resists false positives.** Choose terms that are characteristic of the kind
+  (e.g. "STRIDE", "trust boundary" for a threat model — not just "security").
+- **Multi-format-friendly via `any_of`.** A kind authored in both `.docx` and `.md`
+  may need two signature paths.
+- **No content judgement.** Do not encode "the threat model must list at least 10
+  threats" — that's quality, not identity.
+
+If any kind declares a `template_ref`, the create skill scaffolds an empty
+`templates/<kind>.<ext>` file; your team is responsible for filling it with the
+heading skeleton authors will start from.
+
+`severity_on_missing` and `severity_on_mismatch` are tier-aware: at `relaxed` both
+demote to ADVISORY regardless of the value you declare; at `normal` and `strict`
+they apply as-is.
+
+**How the agent sees it** — the brief field `MANDATORY_DOCUMENT_KINDS` becomes
+`mandatory_document_kinds:` inside the derived `constitution.md` §2.2.4 and is
+mirrored as a key list in §8. The COMPLIANCE agent reads §2.2.4 at runtime; the
+validator reads it during audit. **No per-kind code is generated** — checks are
+table-driven over §2.2.4, so adding or removing kinds is a constitution edit, not
+a code change.
+
 ---
 
 ## 6. Customization markers (tokens and blocks)
@@ -981,7 +1071,7 @@ GEN-103b) cannot be downgraded at any tier or with any justification.
 - `logical_id` — UUID, generated once and stable across versions.
 - `version` — integer, starts at `1` for a new constitution.
 - `name` — the human-readable display name.
-- `inherits_from` — `"Generic Plugin Constitution v3.1.0"` (or the Generic Constitution
+- `inherits_from` — `"Generic Plugin Constitution v3.2.0"` (or the Generic Constitution
 version active when you derived).
 - `mandatory_section_keys` — every key from `constitution.md` §2 plus your additions.
 - `domain_tags` — at least 2–3 useful tags for catalog search.

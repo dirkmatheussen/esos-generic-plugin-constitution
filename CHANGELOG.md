@@ -10,6 +10,96 @@ previous version. Each derived domain plugin pins to a specific base version via
 
 ---
 
+## [3.2.0] — 2026-05-17
+
+**Type**: MINOR — adds a new mandatory-axis (companion documents) without
+removing or incompatibly redefining anything. Existing derivations remain valid;
+re-derivation is required only if a derivation wants to opt into companion-document
+checks.
+
+### Added
+
+- **`constitution.md` §2.2 — Mandatory Companion Documents.** New
+  foundational-floor section defining companion document **kinds** (Threat
+  Model, Risk Register, DPIA, etc.) identified by **kind**, not filename.
+  Includes §2.2.1 Normalized Document Model, §2.2.2 Recognition Rules
+  catalog, §2.2.3 Per-Kind Schema, and §2.2.4 the derivation-customization
+  block. The base declares **no** required kinds; derivations declare zero
+  or more. The existing "Section Discipline" subsection was renumbered
+  §2.2 → §2.3 (no content change).
+- **`constitution.md` §6.1 — three new severity-mapping rows** for
+  companion documents (missing/unreachable, recognition mismatch, no
+  extractor available).
+- **`constitution.md` §8 — `mandatory_document_kinds:` catalog key**
+  mirroring §2.2.4.
+- **`constitution.md` §9 — optional `templates/` directory** in the
+  layout, required iff any §2.2.4 kind declares `template_ref`.
+- **`constitution.md` §11 — two new comparison rows** (companion document
+  kinds, companion document templates) contrasting base vs derivation.
+- **`VALIDATION.md` — five new checks**:
+  - `GEN-022` (Section A, BLOCKING) — companion-document kind
+    declarations complete; §2.2.4 ↔ §8 key-set match.
+  - `GEN-023` (Section A, BLOCKING) — every `template_ref` resolves;
+    `templates/` directory present iff any kind declares `template_ref`.
+  - `GEN-122` (Section B, tier-aware: BLOCKING / BLOCKING / ADVISORY) —
+    companion document instance present and reachable.
+  - `GEN-123` (Section B, tier-aware: BLOCKING / BLOCKING / ADVISORY) —
+    instance passes the kind's recognition signature.
+  - `GEN-124` (Section B, tier-aware: BLOCKING / ADVISORY / ADVISORY) —
+    extractor available for every declared `allowed_formats` extension.
+- **`rulesets/compliance.md` §6 — Mandatory Companion Documents.**
+  Discipline (presence + type-identity, never content quality) and a
+  default extractor dispatch table covering `.docx`, `.xlsx`, `.pptx`
+  (and legacy `.ppt` via conversion to `.pptx`), `.pdf`, `.vsdx`,
+  `.html`, `.md`, `.txt`. Four new message keys
+  (`compliance.companion_doc.*`). Existing "Domain-specific Compliance"
+  subsection renumbered §6 → §7.
+- **`agents/esos-compliance.md`** — companion-document presence and
+  type-identity added to the specialist's specialty list (pointer only —
+  the agent remains slim).
+- **`MANUAL.md` §4.2 / §5.13** — new optional brief field
+  `MANDATORY_DOCUMENT_KINDS` with worked-example block (recall impact
+  assessment, supplier quality certificate, pricing change authorization)
+  and per-field rationale on writing robust recognition rules.
+- **`PROMPT.md`** — production rules for §2.2.4 population, `templates/`
+  scaffolding, `rulesets/compliance.md` §7 preservation, and the
+  extractor-coverage advisory. Self-check items added. Cross-reference to
+  the renumbered §2.3 updated.
+- **`skills/esos-create-constitution/SKILL.md`** — collects
+  `MANDATORY_DOCUMENT_KINDS`, scaffolds `templates/` with stubs, warns on
+  extractor coverage gaps, adds layout entry and self-check items.
+- **`skills/esos-validate-constitution/SKILL.md`** — loads candidate
+  specs' `companion_documents:` blocks and the candidate's `templates/`
+  directory; walks the new checks; updates Section coverage banners
+  (A: GEN-001..023, B: GEN-101..124).
+
+### Changed
+
+- **`plugin.json`** — `version` bumped 3.1.0 → 3.2.0;
+  `constitution.version` likewise;
+  `derivation.derived_plugin_inherits_from` bumped to
+  `esos-generic-plugin-constitution@3.2.0`.
+- **`.claude-plugin/marketplace.json`** — `metadata.version` and plugin
+  entry's `version` bumped to `3.2.0`.
+- **Section numbering in `constitution.md` §2** — existing "Section
+  Discipline" promoted from §2.2 to §2.3 to make room for §2.2 Mandatory
+  Companion Documents. Cross-references in `PROMPT.md` updated
+  accordingly. No content change to the discipline subsection.
+
+### Compatibility
+
+- No content of existing `<!-- esos:keep -->` blocks was modified.
+- No existing check ID changed semantics.
+- Derived plugins inheriting from v3.1.0 remain valid; their auditor
+  returns identical results because §2.2.4 is empty by default. Opting
+  into companion-document checks requires a derivation amendment
+  (declare kinds + optionally ship `templates/`).
+- The 8 foundational mandatory **sections** are unchanged. §2.2
+  introduces a *new axis* (mandatory documents), not a 9th mandatory
+  section.
+
+---
+
 ## [3.1.0] — 2026-05-17
 
 **Type**: MINOR — additive packaging release. No constitution-content contract
