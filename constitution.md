@@ -251,24 +251,43 @@ Responsibility for surfacing missing or mismatched companion documents sits with
 
 <!-- esos:domain-customization -->
 
+The derivation's §2.2.4 list is **populated from the plugin's `templates/` directory at
+derivation time**, not from a brief field. For every template file the team places in
+`templates/`, the create skill builds one entry by combining file-derivable properties
+(`kind`, `label`, `template_ref`, `allowed_formats`, `recognition`) with policy fields
+the team declares in a per-template sidecar `<kind>.esos.yaml` (`applies_when`,
+`severity_on_missing`, `severity_on_mismatch`). The full discovery algorithm is in
+[`PROMPT.md`](PROMPT.md) "§2.2.4 Discovery Algorithm".
+
+The published derivation replaces this block with a concrete YAML. Example shape:
+
 ```yaml
 mandatory_document_kinds:
-  - kind: {{ KIND_KEY }}
-    label: "{{ KIND_LABEL }}"
-    applies_when: "{{ PREDICATE_OR_DESCRIPTION }}"
-    template_ref: "templates/{{ KIND_KEY }}.docx"     # optional
+  - kind: recall_impact_assessment
+    label: "Recall Impact Assessment"
+    applies_when: "spec touches recall_traceability or safety-critical parts"
+    template_ref: "templates/recall-impact-assessment.docx"
     allowed_formats: [docx, pdf]
     recognition:
       any_of:
-        - headings_all_of: ["{{ HEADING_A }}", "{{ HEADING_B }}"]
+        - headings_all_of: ["Affected VIN Population", "Root Cause", "Remediation Plan"]
         - keywords_min_hits:
-            count: 3
-            of: ["{{ KW1 }}", "{{ KW2 }}", "{{ KW3 }}", "{{ KW4 }}"]
+            count: 4
+            of: ["VIN", "campaign", "remediation", "supplier", "field action"]
     severity_on_missing: BLOCKING
     severity_on_mismatch: BLOCKING
 ```
 
-Examples by domain:
+If the derivation's `templates/` directory is absent or empty, §2.2.4 is:
+
+```yaml
+mandatory_document_kinds: []  # No companion documents required.
+```
+
+Sidecars are derivation **inputs**, not published artefacts — they are not copied into
+the published plugin tree. The published contract is the §2.2.4 YAML alone.
+
+Examples of kinds a derivation might ship via `templates/`:
 
 - `threat_model`, `dpia` — security/privacy-heavy domains
 - `risk_register`, `risk_assessment` — risk-managed domains
@@ -554,7 +573,7 @@ constitution_catalog_row:
   logical_id: "{{ DOMAIN_LOGICAL_ID_UUID }}"     # stable across versions
   version: {{ VERSION_INTEGER }}                  # increment on every published change
   name: "{{ DOMAIN_NAME }} Constitution"
-  inherits_from: "Generic Plugin Constitution v3.2.0" # this base; required for derivations
+  inherits_from: "Generic Plugin Constitution v4.0.0" # this base; required for derivations
   severity_tier: "{{ SEVERITY_TIER }}"            # strict | normal | relaxed (see §1.4)
   mandatory_section_keys:
     - use_case_traceability
@@ -619,12 +638,15 @@ payload. Files marked `required` MUST exist; files marked `optional` MAY be adde
 │   ├── esos-coding.md                         # required
 │   └── esos-testing.md                        # required
 │
-├── templates/                                 # optional — required iff any §2.2.4
-│   │                                            #            kind declares `template_ref`.
-│   │                                            #            Files may be of any format
-│   │                                            #            (.docx, .xlsx, .vsdx, .pdf,
-│   │                                            #            .html, .md, .txt, …).
-│   └── <kind>.<ext>                           # one per kind that declares template_ref
+├── templates/                                 # optional — drives §2.2.4 generation.
+│   │                                            #   Each file becomes one §2.2.4 entry.
+│   │                                            #   May be any format (.docx, .xlsx,
+│   │                                            #   .vsdx, .pdf, .html, .md, .txt, …).
+│   │                                            #   Sidecars (<kind>.esos.yaml) are
+│   │                                            #   inputs to the create skill; they
+│   │                                            #   are NOT copied into the published
+│   │                                            #   plugin tree.
+│   └── <kind>.<ext>                           # one per declared kind
 │
 └── skills/                                    # required — Claude Code skills
     ├── esos-finding-emission/                 # required — common
@@ -650,9 +672,18 @@ payload. Files marked `required` MUST exist; files marked `optional` MAY be adde
 Adding files (e.g. `rulesets/safety.md`, `domain/regulations.md`, additional skills) is
 permitted; removing required files is not.
 
-The `templates/` directory is **optional** — it MUST exist if and only if any §2.2.4
-kind declares a `template_ref`. Files in `templates/` may be of any format the
-constitution accepts; the auditor only verifies their existence (`GEN-023`).
+The `templates/` directory is **optional** — it MUST exist in the published derivation
+if and only if any §2.2.4 kind declares a `template_ref`. Files in `templates/` may be
+of any format the constitution accepts; the auditor only verifies their existence
+(`GEN-023`).
+
+During derivation, the same directory in the **source** (the location the create skill
+reads) carries one template file per declared kind plus a sibling sidecar
+`<kind>.esos.yaml` per template that declares `applies_when`, `severity_on_missing`,
+and `severity_on_mismatch` (and MAY override the discovered `kind`, `label`,
+`allowed_formats`, or `recognition`). Sidecars are derivation inputs only; the create
+skill consumes them to populate §2.2.4 and §8 and does not copy them into the
+published plugin tree.
 
 The `skills/esos-create-constitution/` skill is **intentionally absent** from
 derivations — derived plugins do not derive further plugins. That skill lives only
@@ -713,10 +744,10 @@ recording the contract delta for every published version.
 | Governance policies          | Cross-domain principles               | Concrete policies, regulations, audit regimes     |
 | Severity overrides           | Defaults from §6.1                    | May tighten; never loosen foundational-floor items |
 | Severity tier (§1.4)         | Defines three tiers; no tier of its own | Declares one of `strict` / `normal` / `relaxed` in §8 |
-| Companion document kinds (§2.2) | None declared                            | May declare any number; each kind has a recognition signature |
-| Companion document templates | None                                        | `templates/<kind>.<ext>` shipped when a kind declares `template_ref` |
+| Companion document kinds (§2.2) | None declared                            | May declare any number; populated from `templates/` at derivation time (one entry per template file, with policy from a `<kind>.esos.yaml` sidecar) |
+| Companion document templates | None                                        | `templates/<kind>.<ext>` shipped when a kind is declared; sidecars are derivation inputs and are not published |
 
 ---
 
-**Version**: 3.2.0 | **Ratified**: 2026-05-17 | **Last Amended**: 2026-05-17
+**Version**: 4.0.0 | **Ratified**: 2026-05-17 | **Last Amended**: 2026-05-18
 **Inherits from**: none (foundational) | **Manifest**: [`plugin.json`](plugin.json) | **Changes**: [`CHANGELOG.md`](CHANGELOG.md)

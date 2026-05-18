@@ -10,6 +10,114 @@ previous version. Each derived domain plugin pins to a specific base version via
 
 ---
 
+## [4.0.0] — 2026-05-18
+
+**Type**: MAJOR — replaces the inline `MANDATORY_DOCUMENT_KINDS` brief field
+with a templates-directory discovery model. The published §2.2.4 contract is
+unchanged in shape (the COMPLIANCE specialist still reads the same YAML at
+runtime), but the brief schema and the create skill's workflow have changed
+incompatibly. Existing derivations inheriting from v3.2.0 remain operational
+against their pinned base; re-derivation against v4.0.0 requires migrating
+the team's `MANDATORY_DOCUMENT_KINDS` brief block into a `TEMPLATES_DIR`
+directory of real template files plus per-template `<kind>.esos.yaml`
+sidecars.
+
+### Removed
+
+- **Brief field `MANDATORY_DOCUMENT_KINDS`** — gone. Teams no longer
+  hand-author every kind's `kind`, `label`, `applies_when`,
+  `allowed_formats`, `recognition`, `severity_on_missing`, and
+  `severity_on_mismatch` inside the derivation brief.
+
+### Added
+
+- **Brief field `TEMPLATES_DIR`** (optional, default `./templates/`
+  relative to the brief location) — points the create skill at a
+  directory of actual template documents. Each non-sidecar file in the
+  directory becomes one §2.2.4 entry.
+- **Per-template sidecar `<kind>.esos.yaml`** — co-located with each
+  template file in `TEMPLATES_DIR`, carries the **policy** fields the
+  skill cannot infer from the file: `applies_when`,
+  `severity_on_missing`, `severity_on_mismatch`. MAY also override the
+  discovered `kind`, `label`, `allowed_formats`, or `recognition`.
+  Sidecars are derivation inputs only — they are NOT copied into the
+  published plugin tree.
+- **Discovery algorithm** — `PROMPT.md` "§2.2.4 Discovery Algorithm"
+  formalises how the skill derives `kind`, `label`, `template_ref`,
+  `allowed_formats`, and `recognition` from each template file. The
+  COMPLIANCE specialist's `rulesets/compliance.md` §6.2 extractor
+  dispatch table is reused to produce the Normalized Document Model
+  from which `recognition` rules are built.
+- **Mandatory/optional friendly prompt** — when a sidecar is absent or
+  incomplete, the create skill asks two friendly questions per template
+  ("under what condition does it apply?" and "is it mandatory or
+  optional?") and maps the answers to the YAML fields. The binary
+  mandatory/optional answer maps to BOTH `severity_on_missing` and
+  `severity_on_mismatch` symmetrically (mandatory → BLOCKING/BLOCKING;
+  optional → ADVISORY/ADVISORY). Teams that need asymmetric severities
+  edit the sidecar directly after the run.
+- **Sidecar write-back** — when a sidecar is absent, the skill offers
+  to write the resolved policy fields back to
+  `<TEMPLATES_DIR>/<kind>.esos.yaml` so the next re-derivation is
+  reproducible.
+- **`MANUAL.md` §5.13 rewrite** — full coverage of the templates-directory
+  model, sidecar schema, discovery rules, mandatory/optional UX, and
+  what gets published vs. what stays input.
+
+### Changed
+
+- **`constitution.md` §2.2.4** — customization block content rewritten
+  from a parameterised YAML template (with `{{ KIND_KEY }}` /
+  `{{ HEADING_A }}` tokens) to an explainer of the discovery-from-templates
+  model plus a concrete populated-YAML example. The published derivation
+  still emits the same shape of `mandatory_document_kinds:` YAML the
+  COMPLIANCE specialist reads at runtime.
+- **`constitution.md` §9** — `templates/` is now described as the input
+  surface that drives §2.2.4 generation. The layout note now spells out
+  that source `TEMPLATES_DIR` carries one template file per kind plus a
+  sibling `<kind>.esos.yaml` sidecar.
+- **`constitution.md` §11** — comparison rows for "Companion document
+  kinds" and "Companion document templates" updated to reflect the new
+  derivation flow.
+- **`PROMPT.md`** — brief-table row replaced (`MANDATORY_DOCUMENT_KINDS`
+  → `TEMPLATES_DIR`); §2.2.4 production rules rewritten to call the
+  Discovery Algorithm; templates are now copied verbatim from the
+  source rather than stubbed.
+- **`skills/esos-create-constitution/SKILL.md`** — new Step 2.5
+  ("Discover companion-document kinds from `TEMPLATES_DIR`") covers
+  file enumeration, per-file discovery, sidecar reading, the friendly
+  mandatory/optional prompt, sidecar write-back, orphan detection, and
+  extractor-coverage warnings. Step 3 now copies real template files
+  (not stubs); Step 6 records the discovery summary.
+- **`plugin.json`** — `version` 3.2.0 → 4.0.0;
+  `constitution.version` likewise;
+  `derivation.derived_plugin_inherits_from` bumped to
+  `esos-generic-plugin-constitution@4.0.0`. Description updated.
+- **`.claude-plugin/marketplace.json`** — `metadata.version` and plugin
+  entry's `version` bumped to `4.0.0`.
+- **`skills/esos-validate-constitution/SKILL.md`** — description and
+  body text updated to v4.0.0; audit logic itself is unchanged because
+  the published §2.2.4 shape is unchanged.
+
+### Compatibility
+
+- **No content of existing `<!-- esos:keep -->` blocks was modified.**
+- **No check ID changed semantics.** GEN-022, GEN-023, GEN-122,
+  GEN-123, GEN-124 audit the published derivation exactly as in v3.2.0.
+  A v3.2.0 derivation re-audited under v4.0.0's validator returns
+  identical results.
+- **Derivations inheriting from v3.2.0 remain valid against their
+  pinned base.** Their `plugin.json.inherits_from` keeps pointing at
+  `esos-generic-plugin-constitution@3.2.0` and they audit under the
+  v3.2.0 contract.
+- **Re-deriving against v4.0.0 is a deliberate migration**: the team
+  moves their old `MANDATORY_DOCUMENT_KINDS` brief block to
+  `TEMPLATES_DIR/<kind>.esos.yaml` sidecars and supplies real template
+  files. The create skill's interactive prompts smooth the migration.
+- The 8 foundational mandatory **sections** are unchanged.
+
+---
+
 ## [3.2.0] — 2026-05-17
 
 **Type**: MINOR — adds a new mandatory-axis (companion documents) without

@@ -2,8 +2,8 @@
   "spec_version": "1.0",
   "name": "esos-generic-plugin-constitution",
   "display_name": "ESOS Generic Plugin Constitution",
-  "version": "3.2.0",
-  "description": "Foundational, domain-agnostic ESOS constitution packaged as a Claude Code plugin source. Provides the five specialist subagents (analyst, security, compliance, coding, testing), the common review discipline as composable skills, and the create/validate workflow skills. Every derived domain plugin is structurally identical and fully self-contained.",
+  "version": "4.0.0",
+  "description": "Foundational, domain-agnostic ESOS constitution packaged as a Claude Code plugin source. Provides the five specialist subagents (analyst, security, compliance, coding, testing), the common review discipline as composable skills, and the create/validate workflow skills. Every derived domain plugin is structurally identical and fully self-contained. v4.0.0 replaces the inline `MANDATORY_DOCUMENT_KINDS` brief field with a templates-directory discovery model: drop real template files into `TEMPLATES_DIR`, declare per-template policy via `<kind>.esos.yaml` sidecars.",
   "type": "constitution-base",
   "inherits_from": null,
   "kind": "foundational",
@@ -16,9 +16,9 @@
     }
   ],
   "ratified": "2026-05-17",
-  "last_amended": "2026-05-17",
+  "last_amended": "2026-05-18",
   "constitution": {
-    "version": "3.2.0",
+    "version": "4.0.0",
     "root": "constitution.md",
     "rulesets_dir": "rulesets",
     "domain_dir": "domain",
@@ -66,7 +66,7 @@
   "derivation": {
     "produces": "domain-specific plugin",
     "derived_plugin_name_pattern": "esos-{{ DOMAIN_SLUG }}",
-    "derived_plugin_inherits_from": "esos-generic-plugin-constitution@3.2.0",
+    "derived_plugin_inherits_from": "esos-generic-plugin-constitution@4.0.0",
     "derived_plugin_omits": [
       "skills/esos-create-constitution"
     ],

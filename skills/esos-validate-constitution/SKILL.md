@@ -1,13 +1,13 @@
 ---
 name: esos-validate-constitution
-description: Use when the user wants to validate, audit, review, or check a candidate domain ESOS plugin for conformance to the Generic Plugin Constitution (v3.2.0). Triggers on phrases like "validate this plugin", "audit the healthcare constitution", "check if this domain plugin is publishable", "review my fintech plugin". Produces a structured findings report with BLOCKING / ADVISORY items per the numbered checks in VALIDATION.md - including v3.2.0's companion-document checks (GEN-022, GEN-023, GEN-122, GEN-123, GEN-124), v3.1.0's marketplace.json check, and v3.0.0's plugin.json / self-containment / CHANGELOG checks.
+description: Use when the user wants to validate, audit, review, or check a candidate domain ESOS plugin for conformance to the Generic Plugin Constitution (v4.0.0). Triggers on phrases like "validate this plugin", "audit the healthcare constitution", "check if this domain plugin is publishable", "review my fintech plugin". Produces a structured findings report with BLOCKING / ADVISORY items per the numbered checks in VALIDATION.md - including v3.2.0's companion-document checks (GEN-022, GEN-023, GEN-122, GEN-123, GEN-124), v3.1.0's marketplace.json check, and v3.0.0's plugin.json / self-containment / CHANGELOG checks. v4.0.0 audits the published §2.2.4 YAML regardless of whether it was generated from the old inline brief field or v4.0.0's templates-directory discovery model.
 ---
 
 # Skill: Validate a domain ESOS plugin
 
 You audit a candidate domain plugin against:
 
-1. The **Generic Plugin Constitution v3.2.0** (this base, the foundational
+1. The **Generic Plugin Constitution v4.0.0** (this base, the foundational
    document) — `constitution.md`, `rulesets/`, `domain/`, `shared/`.
 2. The **numbered checks** in `VALIDATION.md` (Sections A → D).
 3. The **plugin manifest contract** in `plugin.json`.

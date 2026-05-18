@@ -6,7 +6,7 @@ description: Use when the user wants to create, derive, or generate a domain-spe
 # Skill: Create a domain-specific ESOS plugin
 
 You are deriving a new domain plugin from the Generic Plugin Constitution
-(v3.2.0). The Generic Plugin Constitution lives in this repository
+(v4.0.0). The Generic Plugin Constitution lives in this repository
 (`generic-plugin-constitution/`) and is the floor every derivation starts
 from — there is no document above it.
 
@@ -78,11 +78,15 @@ field is missing, stop and ask before continuing.
 - `ARCHITECTURE_STYLE` (monolith, microservices, event-driven, …).
 - `DOMAIN_SPECIFIC_RISKS` (3–7 risks unique to this domain).
 - `EXTRA_MANDATORY_SECTIONS` (e.g. `safety_case`, `clinical_workflow`).
-- `MANDATORY_DOCUMENT_KINDS` — list of companion-document kinds with
-  `applies_when`, `allowed_formats`, and `recognition` rules. See
-  `MANUAL.md` §5.13 for the schema and recognition-rule design tips. If
-  the brief omits this field, the derivation declares no companion
-  documents (`mandatory_document_kinds: []` in §2.2.4).
+- `TEMPLATES_DIR` — path to a directory of template documents that drives
+  companion-document discovery. Default `./templates/` relative to the brief.
+  Each non-sidecar file in this directory becomes one §2.2.4 entry; each MUST
+  be accompanied by a `<kind>.esos.yaml` sidecar declaring `applies_when`,
+  `severity_on_missing`, `severity_on_mismatch` (and optionally overriding any
+  discovered field). See `MANUAL.md` §5.13 for the full schema and
+  `PROMPT.md` "§2.2.4 Discovery Algorithm" for the inference rules. If the
+  directory is omitted, missing, or empty, the derivation declares no
+  companion documents (`mandatory_document_kinds: []` in §2.2.4).
 - `SPECIALIST_WAIVERS` (rare; usually empty).
 - `EXTERNAL_LINK_ALLOWLIST`.
 - `DOMAIN_TAGS`.
@@ -123,6 +127,99 @@ self-check.
 
 ---
 
+## Step 2.5 — Discover companion-document kinds from `TEMPLATES_DIR`
+
+If the brief supplied (or defaulted) `TEMPLATES_DIR`, walk that directory
+to build the §2.2.4 `mandatory_document_kinds` list. This step replaces
+the v3.2.0 inline `MANDATORY_DOCUMENT_KINDS` brief field.
+
+1. **Resolve `TEMPLATES_DIR`**.
+   - If unset, default to `./templates/` relative to the brief location.
+   - If the resolved path does not exist or contains no non-sidecar files,
+     record "no companion documents" and skip this step — §2.2.4 will be
+     `mandatory_document_kinds: []`.
+
+2. **Enumerate files**. List every regular file in `TEMPLATES_DIR` whose
+   extension is NOT `.yaml` (sidecars are not templates).
+
+3. **For each template file**, follow the full **§2.2.4 Discovery
+   Algorithm** in `PROMPT.md`:
+   1. Derive `kind` from the filename stem (snake_case). Sidecar `kind:`
+      overrides.
+   2. Group sibling files with the same stem → multi-format
+      `allowed_formats`. Sidecar `allowed_formats:` overrides.
+   3. Extract the Normalized Document Model using the extractor for the
+      file's format (`rulesets/compliance.md` §6.2).
+   4. Derive `label` from the document title / H1. Sidecar `label:`
+      overrides. Fallback: Title Case of the kind.
+   5. Build `recognition` from the model: prefer `headings_all_of` (top 3
+      headings), then `sections_any_of` (top 5 section names for `.xlsx`
+      / `.vsdx`), then `tabular_headers_all_of` (first table's headers),
+      and always also add a `keywords_min_hits` fallback with the 4–8
+      most characteristic terms and `count = floor(len(of) * 0.6)`. Wrap
+      multiple rule paths in `any_of:`. Sidecar `recognition:` overrides
+      the entire discovered block (no merge).
+   6. **If the model is empty** (no headings, no sheets, no tables, no
+      characteristic words — common for scanned PDFs, password-protected
+      files, or image-only Visio), stop and ask the user to supply
+      `recognition` in the sidecar. **Do not fabricate a recognition
+      block.**
+
+4. **Read the sidecar `<TEMPLATES_DIR>/<kind>.esos.yaml`**.
+   - If present, parse YAML and require `applies_when`,
+     `severity_on_missing`, and `severity_on_mismatch`. Optional override
+     keys: `kind`, `label`, `allowed_formats`, `recognition`.
+   - If **absent**, stop and ask the user **two friendly questions per
+     template** (do not surface the raw severity field names — that's
+     YAML detail):
+     1. *"Under what condition does `<label>` apply to a specification?
+        (Predicate the COMPLIANCE agent evaluates from the spec body —
+        e.g. 'spec touches recall_traceability or safety-critical
+        parts'.)"* — this becomes `applies_when`.
+     2. *"Is `<label>` **mandatory** or **optional** for applicable
+        specifications?"* — the answer maps to both severity fields:
+        - **mandatory** → `severity_on_missing: BLOCKING`,
+          `severity_on_mismatch: BLOCKING`.
+        - **optional** → `severity_on_missing: ADVISORY`,
+          `severity_on_mismatch: ADVISORY`.
+     Then **offer to write a sidecar back to
+     `<TEMPLATES_DIR>/<kind>.esos.yaml`** containing the values you
+     resolved so re-derivation is reproducible. Wait for the user to
+     confirm before writing. If a team needs the asymmetric case
+     (e.g. *missing* is ADVISORY but *failed recognition* is BLOCKING),
+     mention that they can edit the sidecar after the run to pull the
+     two severities apart — the binary prompt is the friendly default,
+     not a constraint.
+   - If **present but missing a required field**, stop and ask for the
+     specific field — use the same friendly mandatory/optional prompt
+     when the missing field is one or both severities. Offer to update
+     the sidecar.
+
+5. **Compose the in-memory §2.2.4 list**. One entry per discovered kind
+   (de-duplicated by `kind`), combining discovered properties and
+   sidecar policy.
+
+6. **Flag orphans and gaps**:
+   - Sidecar present without a matching template file → log a warning,
+     skip the sidecar (do not invent a kind).
+   - Template's discovered `allowed_formats` includes an extension
+     outside the default extractor dispatch table (`rulesets/compliance.md`
+     §6.2) → log a warning that `GEN-124` will fire unless the
+     derivation extends the dispatch table.
+
+7. **Record the discovery summary** for Step 6. For every kind, note:
+   `kind`, sidecar status (`loaded` / `written-back` / `interactively-supplied`),
+   which fields were discovered vs. overridden, and the resolved
+   `template_ref` path the published derivation will use.
+
+This in-memory list is what populates `constitution.md` §2.2.4 and §8
+`mandatory_document_kinds:` in Step 3. The actual template files
+(and any same-stem siblings) are copied into the derived plugin's
+`templates/` directory in Step 3. **Sidecars are never copied into the
+derived plugin** — they are derivation inputs only.
+
+---
+
 ## Step 3 — Produce the derived plugin directory
 
 Output to the path resolved in Step 1:
@@ -150,8 +247,11 @@ Mirror the base layout 1:1 (per `constitution.md` §9):
 ├── domain/{glossary,governance-policies,tech-stack}.md
 ├── shared/{normative-language,security-baseline,acceptance-criteria-format}.md
 ├── agents/esos-{analyst,security,compliance,coding,testing}.md
-├── templates/                                # optional — only if any §2.2.4 kind
-│   └── <kind>.<ext>                          #            declares `template_ref`
+├── templates/                                # populated from the source
+│   └── <kind>.<ext>                          #            TEMPLATES_DIR (Step 2.5);
+│                                             #            absent if no kinds were
+│                                             #            discovered. Sidecars are
+│                                             #            NOT copied here.
 └── skills/
     ├── esos-finding-emission/SKILL.md
     ├── esos-ruleset-resolution/SKILL.md
@@ -167,26 +267,21 @@ Mirror the base layout 1:1 (per `constitution.md` §9):
 `skills/esos-create-constitution/` is **intentionally absent** —
 derivations don't derive further.
 
-**Scaffold `templates/` when any kind declares `template_ref`.** For every
-kind in the brief's `MANDATORY_DOCUMENT_KINDS` that declares `template_ref`,
-create a placeholder file at the referenced path inside the derived plugin
-tree (typically `<DOMAIN_SLUG>/templates/<kind>.<ext>`):
+**Populate `templates/` from the discovered kinds.** For every kind in the
+in-memory list produced by Step 2.5, copy the template file (and any
+same-stem siblings) from the source `TEMPLATES_DIR` into the derived plugin
+at `<DOMAIN_SLUG>/templates/<basename>`. The files are copied verbatim —
+no stubbing, no auto-authoring. **Do NOT copy any `<kind>.esos.yaml`
+sidecar** — sidecars are derivation inputs and stay with the brief.
 
-- `.md` / `.txt` / `.html` → one-line text file with
-  `# {{ kind label }} template` and a trailing comment "(replace with the
-  heading skeleton the team wants authors to start from)".
-- `.docx` / `.xlsx` / `.vsdx` / `.pdf` → an empty file at the right path.
-  Do NOT attempt to author Office content — the team replaces these stubs
-  with real templates before publishing.
+If the in-memory list is empty (no `TEMPLATES_DIR`, or the directory was
+absent / empty), do NOT create `templates/` in the derived plugin and write
+`mandatory_document_kinds: []` into §2.2.4 and §8.
 
-Surface every stubbed template in the derivation summary as a "template to
-fill" task. If `MANDATORY_DOCUMENT_KINDS` is empty or omitted, do NOT
-create `templates/`.
-
-If any kind's `allowed_formats` lists an extension not in the default
-extractor dispatch table (`rulesets/compliance.md` §6.2), emit a warning in
-the summary: "declared format `<ext>` has no extractor — extend the
-dispatch table or audit will fire `GEN-124`."
+If any discovered (or sidecar-overridden) `allowed_formats` includes an
+extension not in the default extractor dispatch table (`rulesets/compliance.md`
+§6.2), emit a warning in the derivation summary: "declared format `<ext>`
+has no extractor — extend the dispatch table or audit will fire `GEN-124`."
 
 For each file, apply the per-file production rules in `PROMPT.md`. In
 particular:
@@ -201,7 +296,7 @@ particular:
   marked optional trailing sections — never by editing the base
   discipline.
 - **`plugin.json`** in the derived plugin declares
-  `inherits_from: "esos-generic-plugin-constitution@3.2.0"`,
+  `inherits_from: "esos-generic-plugin-constitution@4.0.0"`,
   `kind: "derived"`, `self_containment.policy: "strict"`, and omits
   `esos-create-constitution` from `provides.skills.workflow`.
 - **Cite regulations specifically** — vague "GDPR-compliant" is
@@ -236,7 +331,7 @@ key gates (full list in `PROMPT.md`):
 - [ ] All five specialist classes wired in `esosAgentCatalog` with paths
       pointing to `rulesets/<role>.md`.
 - [ ] `plugin.json` present at the plugin root with
-      `inherits_from: "esos-generic-plugin-constitution@3.2.0"`,
+      `inherits_from: "esos-generic-plugin-constitution@4.0.0"`,
       `kind: "derived"`, `self_containment.policy: "strict"`, no
       `esos-create-constitution` in `provides.skills.workflow`.
 - [ ] `CHANGELOG.md` present with `[1.0.0]` entry.
@@ -262,8 +357,14 @@ key gates (full list in `PROMPT.md`):
       a fully-populated list from the brief.
 - [ ] Every kind in §2.2.4 has a matching key in §8
       `mandatory_document_kinds:`.
-- [ ] Every `template_ref` resolves to a stub file under `templates/`;
-      stubs are listed in the summary as "team must fill".
+- [ ] Every `template_ref` in §2.2.4 resolves to a real file under the
+      derived plugin's `templates/`, copied verbatim from the source
+      `TEMPLATES_DIR`. No `<kind>.esos.yaml` sidecar appears under
+      `templates/` (sidecars are inputs, not published artefacts).
+- [ ] Step 2.5's discovery summary is included in the Step 6 derivation
+      summary, listing each kind, sidecar status (loaded /
+      written-back / interactively-supplied), and any
+      discovered-vs-overridden fields.
 
 Fix any failures before declaring done. **Do not emit a partial result.**
 

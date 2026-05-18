@@ -130,7 +130,7 @@ installs the plugin from that marketplace. Pin to a tag or commit for
 production use:
 
 ```text
-/plugin marketplace add dirkmatheussen/esos-generic-plugin-constitution@v3.2.0
+/plugin marketplace add dirkmatheussen/esos-generic-plugin-constitution@v4.0.0
 ```
 
 For non-GitHub Git hosts, supply the full HTTPS URL (note the `.git` suffix —
@@ -138,7 +138,7 @@ it tells Claude Code to clone rather than treat the URL as a marketplace
 manifest):
 
 ```text
-/plugin marketplace add https://gitlab.example.com/platform/esos.git#v3.2.0
+/plugin marketplace add https://gitlab.example.com/platform/esos.git#v4.0.0
 ```
 
 #### Option B — install from a local path (recommended while iterating)
@@ -229,7 +229,7 @@ Two layers govern your constitution. The Generic Constitution is **foundational*
 it is the floor; nothing sits above it.
 
 ```
-Generic Plugin Constitution Base v3.2.0     ← the floor: 5 specialist classes, pipeline
+Generic Plugin Constitution Base v4.0.0     ← the floor: 5 specialist classes, pipeline
         │                              ordering, mandatory section minimum, audit
         │                              and traceability rules, severity floor,
         │                              CODING agent as senior dev/architect (14 areas),
@@ -289,7 +289,7 @@ Optional but **strongly recommended**:
 | `EXTERNAL_LINK_ALLOWLIST`  | Allowed schemes/hosts                                                  | `https` only, no host allowlist.                                   |
 | `DOMAIN_TAGS`              | Catalog tags for search                                                | Empty (poor catalog hygiene).                                      |
 | `DOMAIN_LOGICAL_ID_UUID`   | UUID for stable identity across versions                               | Auto-generated.                                                    |
-| `MANDATORY_DOCUMENT_KINDS` | Companion documents required alongside specs (Threat Model, Risk Register, DPIA, …) with `applies_when`, allowed formats, and recognition signatures | Empty — no companion-document checks enforced. See [§5.13](#513-mandatory_document_kinds). |
+| `TEMPLATES_DIR`            | Path to a directory of template documents that drives companion-document discovery. Each file in the directory becomes one §2.2.4 entry; each MUST be accompanied by a `<kind>.esos.yaml` sidecar declaring `applies_when`, `severity_on_missing`, `severity_on_mismatch`. | `./templates/` relative to the brief — empty / missing = `mandatory_document_kinds: []`. See [§5.13](#513-templates_dir). |
 
 
 **A worked example brief** (automotive spare parts supply chain):
@@ -382,46 +382,41 @@ EXTERNAL_LINK_ALLOWLIST:
   schemes: [https]
   hosts: [confluence.example-auto.com, sharepoint.example-tenant.com, supplier-portal.example-tier1.com]
 
-MANDATORY_DOCUMENT_KINDS:
-  - kind: recall_impact_assessment
-    label: "Recall Impact Assessment"
-    applies_when: "spec touches recall_traceability or safety-critical parts"
-    template_ref: "templates/recall-impact-assessment.docx"
-    allowed_formats: [docx, pdf]
-    recognition:
-      any_of:
-        - headings_all_of: ["Affected VIN Population", "Root Cause", "Remediation Plan"]
-        - keywords_min_hits:
-            count: 4
-            of: ["VIN", "campaign", "remediation", "supplier", "field action"]
-    severity_on_missing: BLOCKING
-    severity_on_mismatch: BLOCKING
-
-  - kind: supplier_quality_certificate
-    label: "Supplier Quality Certificate (PPAP / IATF 16949)"
-    applies_when: "supplier_integration in scope"
-    template_ref: "templates/supplier-quality-certificate.pdf"
-    allowed_formats: [pdf, docx]
-    recognition:
-      keywords_min_hits:
-        count: 3
-        of: ["PPAP", "IATF 16949", "Part Submission Warrant", "supplier", "approval"]
-    severity_on_missing: ADVISORY
-    severity_on_mismatch: ADVISORY
-
-  - kind: pricing_change_authorization
-    label: "Pricing Change Authorization"
-    applies_when: "pricing_controls in scope"
-    template_ref: "templates/pricing-change-authorization.xlsx"
-    allowed_formats: [xlsx]
-    recognition:
-      sheet_names_any_of: ["Authorization", "Pricing Change"]
-      tabular_headers_all_of: ["Region", "Effective Date", "Approver"]
-    severity_on_missing: BLOCKING
-    severity_on_mismatch: BLOCKING
+TEMPLATES_DIR: "./templates/"   # the create skill walks this directory and
+                                # generates one §2.2.4 entry per template file.
+                                # Each template carries a sidecar with the
+                                # team's policy fields (see §5.13).
 
 DOMAIN_TAGS: [automotive, spare-parts, supply-chain, b2b, oem, aftermarket]
 ```
+
+Alongside the brief, the source `./templates/` directory contains:
+
+```
+./templates/
+├── recall-impact-assessment.docx
+├── recall-impact-assessment.esos.yaml         # sidecar — policy fields
+├── supplier-quality-certificate.pdf
+├── supplier-quality-certificate.esos.yaml
+├── pricing-change-authorization.xlsx
+└── pricing-change-authorization.esos.yaml
+```
+
+Each sidecar carries the three policy fields the create skill cannot infer from
+the file itself:
+
+```yaml
+# recall-impact-assessment.esos.yaml
+applies_when: "spec touches recall_traceability or safety-critical parts"
+severity_on_missing: BLOCKING
+severity_on_mismatch: BLOCKING
+```
+
+Sidecars MAY also override discovered fields (`kind`, `label`, `allowed_formats`,
+`recognition`) when discovery doesn't match the team's intent — see §5.13 for
+the full schema. The published derivation copies the template files (not the
+sidecars) into `<DOMAIN_SLUG>/templates/`; sidecars stay with the source brief
+and are reused on re-derivation.
 
 **Save your brief** to a scratch file (e.g. `/tmp/esos-brief-automotive-spare-parts.md`)
 so the work is resumable if the session is interrupted.
@@ -828,7 +823,7 @@ If you omit `SEVERITY_TIER` from the brief, the derivation skill defaults to
 `strict` and records the defaulting in the derivation summary. Pick deliberately
 rather than letting the default decide for you.
 
-### 5.13 `MANDATORY_DOCUMENT_KINDS`
+### 5.13 `TEMPLATES_DIR`
 
 Companion documents are deliverables that must exist *alongside* a specification —
 Threat Model, Risk Register, Architecture Diagram, DPIA, Safety Case, etc. They
@@ -837,47 +832,118 @@ may contain images. The constitution does not judge their content; it verifies o
 that, for every applicable kind, a document **exists** and is **recognizably of
 that kind**.
 
-You declare zero or more kinds. Each kind has:
+In v4.0.0, the derivation **discovers** companion-document kinds by walking a
+templates directory rather than having you re-state every field in the brief. You
+drop the actual template files into a directory (default `./templates/` relative
+to the brief, or any path you set via `TEMPLATES_DIR`) and the create skill
+inspects each file to derive what it can. The fields the skill cannot infer
+from the file itself — your team's **policy** — live in a per-template sidecar
+named `<kind>.esos.yaml` next to the template.
 
+#### 5.13.1 Field origin — discovery vs. sidecar
 
-| Field                  | Purpose                                                                       |
+| Field                  | Origin                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------- |
-| `kind`                 | snake_case machine key.                                                       |
-| `label`                | Human label used in findings.                                                 |
-| `applies_when`         | Predicate the COMPLIANCE agent evaluates from the spec body.                  |
-| `template_ref`         | Optional. Path to a starting-point template shipped at `templates/<kind>.<ext>`. |
-| `allowed_formats`      | Extensions you accept (`docx`, `pdf`, `xlsx`, `pptx`, `ppt`, `vsdx`, `html`, `md`, `txt`, …).|
-| `recognition`          | Signature block — see `constitution.md` §2.2.2.                               |
-| `severity_on_missing`  | BLOCKING or ADVISORY when no instance exists.                                 |
-| `severity_on_mismatch` | BLOCKING or ADVISORY when instance exists but fails recognition.              |
+| `kind`                 | **Discovered** from the filename stem (snake_case). Sidecar MAY override.    |
+| `label`                | **Discovered** from the document title / H1. Sidecar MAY override.            |
+| `template_ref`         | **Discovered** — always `templates/<basename>` after the skill copies the file into the derived plugin. |
+| `allowed_formats`      | **Discovered** from the file's extension + any sibling files with the same stem. Sidecar MAY override. |
+| `recognition`          | **Discovered** from the Normalized Document Model (headings, sheet names, tabular headers, characteristic keywords). Sidecar MAY override. |
+| `applies_when`         | **Sidecar (required)** — cannot be inferred; the team declares the trigger predicate. |
+| `severity_on_missing`  | **Sidecar (required)** — BLOCKING or ADVISORY when no instance exists.        |
+| `severity_on_mismatch` | **Sidecar (required)** — BLOCKING or ADVISORY when an instance exists but fails recognition. |
 
+If a template file has **no sidecar**, the create skill stops and asks two
+friendly questions per template — the raw YAML field names never appear in
+the conversation:
 
-**Writing a good `recognition` block** — aim for these properties:
+1. *"Under what condition does `<label>` apply to a specification?"* — your
+   answer becomes `applies_when`.
+2. *"Is `<label>` **mandatory** or **optional**?"* — the answer drives both
+   severity fields:
+   - **mandatory** → `severity_on_missing: BLOCKING`,
+     `severity_on_mismatch: BLOCKING`.
+   - **optional** → `severity_on_missing: ADVISORY`,
+     `severity_on_mismatch: ADVISORY`.
 
-- **Robust to renames and reorders.** Avoid `headings_all_of` if reviewers commonly
-  reword headings; use `keywords_min_hits` with `count` < length-of-list so partial
-  matches pass.
-- **Resists false positives.** Choose terms that are characteristic of the kind
-  (e.g. "STRIDE", "trust boundary" for a threat model — not just "security").
-- **Multi-format-friendly via `any_of`.** A kind authored in both `.docx` and `.md`
-  may need two signature paths.
-- **No content judgement.** Do not encode "the threat model must list at least 10
-  threats" — that's quality, not identity.
+The skill then offers to write the sidecar back to `TEMPLATES_DIR` so the
+next re-derivation is reproducible.
 
-If any kind declares a `template_ref`, the create skill scaffolds an empty
-`templates/<kind>.<ext>` file; your team is responsible for filling it with the
-heading skeleton authors will start from.
+Teams that need asymmetric severities (e.g. *missing the document* is
+ADVISORY but *the document fails recognition* is BLOCKING because someone
+authored it incorrectly) edit the sidecar after the run — the binary
+mandatory/optional prompt is the friendly default, not a constraint. A
+sidecar exists **without a matching template** is surfaced as a warning
+and skipped — orphan sidecars are derivation defects.
 
-`severity_on_missing` and `severity_on_mismatch` are tier-aware: at `relaxed` both
-demote to ADVISORY regardless of the value you declare; at `normal` and `strict`
-they apply as-is.
+#### 5.13.2 Sidecar schema
 
-**How the agent sees it** — the brief field `MANDATORY_DOCUMENT_KINDS` becomes
-`mandatory_document_kinds:` inside the derived `constitution.md` §2.2.4 and is
-mirrored as a key list in §8. The COMPLIANCE agent reads §2.2.4 at runtime; the
-validator reads it during audit. **No per-kind code is generated** — checks are
-table-driven over §2.2.4, so adding or removing kinds is a constitution edit, not
-a code change.
+```yaml
+# <kind>.esos.yaml — co-located with the template file in TEMPLATES_DIR.
+# Required:
+applies_when: "<predicate the COMPLIANCE agent evaluates from the spec body>"
+severity_on_missing: BLOCKING       # or ADVISORY
+severity_on_mismatch: BLOCKING      # or ADVISORY
+
+# Optional overrides (each REPLACES the discovered value — no merge):
+# kind: my_explicit_kind
+# label: "Human-readable label override"
+# allowed_formats: [docx, pdf]
+# recognition:
+#   any_of:
+#     - headings_all_of: ["Heading A", "Heading B"]
+#     - keywords_min_hits:
+#         count: 3
+#         of: ["term1", "term2", "term3", "term4"]
+```
+
+#### 5.13.3 Writing good templates
+
+A discovered `recognition` block is only as good as the template you supply.
+Templates should:
+
+- **Use stable heading text.** "Affected VIN Population", "Root Cause",
+  "Remediation Plan" — these become candidate `headings_all_of` entries.
+  Renaming them every quarter defeats discovery.
+- **Carry characteristic vocabulary.** "STRIDE", "trust boundary",
+  "PPAP" — words that occur in real instances but not in unrelated docs.
+- **Avoid scaffolding markers** in the template body that wouldn't appear
+  in real instances (e.g. `[FILL IN]`, `<placeholder>`). The skill's
+  keyword extractor filters obvious scaffolding patterns, but cleaner
+  templates produce cleaner recognition.
+- **For `.xlsx` / `.vsdx`**: name sheets and pages meaningfully — they
+  become `sections_any_of` candidates. For `.xlsx`, the first table's
+  column headers become `tabular_headers_all_of` candidates.
+
+When discovery doesn't match your intent, override `recognition` in the
+sidecar. The sidecar override REPLACES the discovered block entirely — there
+is no merge.
+
+#### 5.13.4 When discovery fails
+
+If a template yields an empty Normalized Document Model (scanned PDF without
+OCR, password-protected file, image-only Visio, no headings / sheets / tables /
+characteristic words), the create skill stops and asks you to supply
+`recognition` in the sidecar. The skill never fabricates a recognition block —
+that would be a silent failure mode.
+
+If the template's extension is outside the default extractor dispatch table
+(`rulesets/compliance.md` §6.2), the skill warns about `GEN-124` exposure
+unless the derivation extends the dispatch table.
+
+#### 5.13.5 What is published vs. what stays input
+
+`severity_on_missing` and `severity_on_mismatch` are tier-aware at runtime: at
+`relaxed` both demote to ADVISORY regardless of the value you declare; at
+`normal` and `strict` they apply as-is.
+
+**How the agent sees it** — every template the skill discovers becomes one
+entry in `mandatory_document_kinds:` inside the derived `constitution.md`
+§2.2.4 and is mirrored as a key in §8. The COMPLIANCE agent reads §2.2.4 at
+runtime; the validator reads it during audit. **No per-kind code is generated**
+— checks are table-driven over §2.2.4. The template files are copied into the
+derived plugin's `templates/` directory; the sidecars are NOT — they stay with
+the source brief so re-derivation can reproduce the same output.
 
 ---
 
@@ -1071,7 +1137,7 @@ GEN-103b) cannot be downgraded at any tier or with any justification.
 - `logical_id` — UUID, generated once and stable across versions.
 - `version` — integer, starts at `1` for a new constitution.
 - `name` — the human-readable display name.
-- `inherits_from` — `"Generic Plugin Constitution v3.2.0"` (or the Generic Constitution
+- `inherits_from` — `"Generic Plugin Constitution v4.0.0"` (or the Generic Constitution
 version active when you derived).
 - `mandatory_section_keys` — every key from `constitution.md` §2 plus your additions.
 - `domain_tags` — at least 2–3 useful tags for catalog search.

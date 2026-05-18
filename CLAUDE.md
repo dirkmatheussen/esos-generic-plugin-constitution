@@ -1,4 +1,4 @@
-# CLAUDE.md — ESOS Generic Plugin Constitution (v3.2.0)
+# CLAUDE.md — ESOS Generic Plugin Constitution (v4.0.0)
 
 This repository is the **plugin-shaped, domain-agnostic base** from which
 domain-specific ESOS plugins are derived. The directory you are reading is itself
